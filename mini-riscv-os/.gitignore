@@ -1,0 +1,12 @@
+*~
+*.o
+*.elf
+*.bin
+*.list
+*.swp
+*.bak
+bak
+.vscode
+*.img
+*.dsk
+

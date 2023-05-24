@@ -116,60 +116,30 @@
 .globl sys_switch
 .align 4
 sys_switch:
+
         ctx_save a0  # a0 => struct context *old
         ctx_load a1  # a1 => struct context *new
         ret          # pc=ra; swtch to new task (new->ra)
 
-.globl sys_kernel
+
+.globl trap_vector
+# the trap vector base address must always be aligned on a 4-byte boundary
 .align 4
-sys_kernel:
-        addi sp, sp, -128  # alloc stack space
-        reg_save sp        # save all registers
-        call timer_handler # call timer_handler in timer.c
-        reg_load sp        # restore all registers
-        addi sp, sp, 128   # restore stack pointer
+trap_vector:
+	# save context(registers).
+	csrrw	t6, mscratch, t6	# swap t6 and mscratch
+        reg_save t6
+	csrw	mscratch, t6
+	# call the C trap handler in trap.c
+	csrr	a0, mepc
+	csrr	a1, mcause
+	call	trap_handler
 
-        # restore mepc from scratch
-        csrrw a0, mscratch, a0 #  exchange(mscratch,a0)
-        sw      a1, 0(a0)
-        lw      a1, 20(a0)
-        csrw    mepc, ra
-        lw      a1, 0(a0)
-        csrrw a0, mscratch, a0 #  exchange(mscratch,a0)
-        ret
+	# trap_handler will return the return address via a0.
+	csrw	mepc, a0
 
-.globl sys_timer
-.align 4
-sys_timer:
-        # timer_init() has set up the memory that mscratch points to:
-        # scratch[0,4,8] : register save area.
-        # scratch[12] : address of CLINT's MTIMECMP register.
-        # scratch[16] : desired interval between interrupts.
-        # scratch[20] : saved mepc
+	# load context(registers).
+	csrr	t6, mscratch
+	reg_load t6
+	mret
 
-        # save register to scratch area
-        csrrw a0, mscratch, a0 #  exchange(mscratch,a0)
-        sw a1, 0(a0)
-        sw a2, 4(a0)
-        sw a3, 8(a0)
-        csrr a1, mepc
-        sw a1, 20(a0)     # save mepc to scratch area 
-
-        la a1, sys_kernel # mepc = sys_kernel (la : load address)
-        csrw mepc, a1     # mret : will jump to sys_kernel
-
-        # schedule the next timer interrupt
-        # by adding interval to mtimecmp.
-        lw a1, 12(a0)  # CLINT_MTIMECMP(hart)
-        lw a2, 16(a0)  # interval
-        lw a3, 0(a1)   # a3 = CLINT_MTIMECMP(hart)
-        add a3, a3, a2 # a3 += interval
-        sw a3, 0(a1)   # CLINT_MTIMECMP(hart) = a3
- 
-        # restore registers from scratch area
-        lw a3, 8(a0)
-        lw a2, 4(a0)
-        lw a1, 0(a0)
-        csrrw a0, mscratch, a0 # exchange(mscratch,a0)
-
-        mret              # jump to mepc (=sys_kernel)

@@ -12,6 +12,7 @@ int task_create(void (*task)(void))
 {
 	int i = taskTop++;
 	ctx_tasks[i].ra = (reg_t)task;
+	// ctx_tasks[i].pc = (reg_t)task;
 	ctx_tasks[i].sp = (reg_t)&task_stack[i][STACK_SIZE - 1];
 	return i;
 }
@@ -20,6 +21,7 @@ int task_create(void (*task)(void))
 void task_go(int i)
 {
 	ctx_now = &ctx_tasks[i];
+	// switch_to(ctx_now);
 	sys_switch(&ctx_os, &ctx_tasks[i]);
 }
 
@@ -28,5 +30,6 @@ void task_os()
 {
 	struct context *ctx = ctx_now;
 	ctx_now = &ctx_os;
+	// switch_to(&ctx_os);
 	sys_switch(ctx, &ctx_os);
 }
