@@ -8,7 +8,7 @@ void user_task0(void)
 	while (1) {
 		lib_puts("Task0: Running...\n");
 		lib_delay(1000);
-		// os_kernel();
+		os_kernel();
 	}
 }
 
