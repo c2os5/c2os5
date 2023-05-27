@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "lib.h"
 #include "task.h"
+#include "timer.h"
 
 extern void user_init();
 extern void os_kernel();
