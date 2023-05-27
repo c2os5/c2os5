@@ -37,11 +37,11 @@
 .endm
 
 # ============ Macro END   ==================
- 
+
 # Context switch
 #
 #   void sys_switch(struct context *old, struct context *new);
-# 
+#
 # Save current registers in old. Load from new.
 
 .globl sys_switch
@@ -53,6 +53,7 @@ sys_switch:
 
 
 .extern ctx_os
+.extern ctx_now
 
 .globl sys_timer
 .align 4
@@ -60,15 +61,20 @@ sys_timer:
 	# call the C timer_handler(reg_t epc, reg_t cause)
 	csrr	a0, mepc
 	csrr	a1, mcause
-	# la      a2, ctx_os
-        lw      a2, ctx_now
+	la      a2, ctx_os
+        # lw      a2, ctx_now
+        la      a2, ctx_now
+        lw      a2, 0(a2)
 	ctx_save a2
 
 	call	timer_handler
 
 	# timer_handler will return the return address via a0.
-	csrw	mepc, a0
+	# csrw	mepc, a0
 
 	la      a2, ctx_os
 	ctx_load a2
+
+        csrw    mepc, ra
 	mret # back to interrupt location (pc=mepc)
+
