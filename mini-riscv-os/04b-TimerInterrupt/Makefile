@@ -8,7 +8,7 @@ OBJDUMP = riscv64-unknown-elf-objdump
 
 all: os.elf
 
-os.elf: start.s sys.s lib.c timer.c os.c
+os.elf: start.s sys.s lib.c timer.c os.c task.c
 	$(CC) $(CFLAGS) -T os.ld -o os.elf $^
 
 qemu: $(TARGET)
