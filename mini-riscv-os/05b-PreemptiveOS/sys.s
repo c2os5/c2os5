@@ -61,20 +61,14 @@ sys_timer:
 	# call the C timer_handler(reg_t epc, reg_t cause)
 	csrr	a0, mepc
 	csrr	a1, mcause
-	la      a2, ctx_os
-        # lw      a2, ctx_now
-        la      a2, ctx_now
-        lw      a2, 0(a2)
+        lw      a2, ctx_now
 	ctx_save a2
 
 	call	timer_handler
-
-	# timer_handler will return the return address via a0.
-	# csrw	mepc, a0
 
 	la      a2, ctx_os
 	ctx_load a2
 
         csrw    mepc, ra
-	mret # back to interrupt location (pc=mepc)
+	mret # (pc=mepc=ra)
 
