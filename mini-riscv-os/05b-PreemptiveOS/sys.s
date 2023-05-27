@@ -60,7 +60,8 @@ sys_timer:
 	# call the C timer_handler(reg_t epc, reg_t cause)
 	csrr	a0, mepc
 	csrr	a1, mcause
-	la      a2, ctx_os
+	# la      a2, ctx_os
+        lw      a2, ctx_now
 	ctx_save a2
 
 	call	timer_handler
