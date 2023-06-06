@@ -38,14 +38,14 @@ static struct disk {
   // most commands consist of a "chain" (a linked list) of a couple of
   // these descriptors.
   // points into pages[].
-  struct virtq_desc *desc; // 描述子
+  struct virtq_desc *desc;
 
   // next is a ring in which the driver writes descriptor numbers
   // that the driver would like the device to process.  it only
   // includes the head descriptor of each chain. the ring has
   // NUM elements.
   // points into pages[].
-  struct virtq_avail *avail; // 可用的描述子 (未分配出去的，以陣列形成環狀方式運用)
+  struct virtq_avail *avail;
 
   // finally a ring in which the device writes descriptor numbers that
   // the device has finished processing (just the head of each chain).
@@ -71,9 +71,8 @@ static struct disk {
   
   struct spinlock vdisk_lock;
   
-} __attribute__ ((aligned (PGSIZE))) disk; // 應以 PGSIZE 為大小 align
+} __attribute__ ((aligned (PGSIZE))) disk;
 
-// 參考 [Virtual I/O Device (VIRTIO) Version 1.1 -- 4.2.2 MMIO Device Register Layout](https://docs.oasis-open.org/virtio/virtio/v1.1/csprd01/virtio-v1.1-csprd01.html#x1-1460002)
 void
 virtio_disk_init(void) // 初始化本模組
 {
@@ -81,7 +80,6 @@ virtio_disk_init(void) // 初始化本模組
 
   initlock(&disk.vdisk_lock, "virtio_disk");
 
-  // 檢查是否有 MMIO 磁碟裝置存在？
   if(*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
      *R(VIRTIO_MMIO_VERSION) != 1 ||
      *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
@@ -89,14 +87,13 @@ virtio_disk_init(void) // 初始化本模組
     panic("could not find virtio disk");
   }
   
-  // 設定 VIRTIO_MMIO 狀態
   status |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
   *R(VIRTIO_MMIO_STATUS) = status;
 
   status |= VIRTIO_CONFIG_S_DRIVER;
   *R(VIRTIO_MMIO_STATUS) = status;
 
-  // negotiate features // 設定 feature 準備開始協商
+  // negotiate features
   uint64 features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
   features &= ~(1 << VIRTIO_BLK_F_RO);
   features &= ~(1 << VIRTIO_BLK_F_SCSI);
@@ -108,10 +105,10 @@ virtio_disk_init(void) // 初始化本模組
   *R(VIRTIO_MMIO_DRIVER_FEATURES) = features;
 
   // tell device that feature negotiation is complete.
-  status |= VIRTIO_CONFIG_S_FEATURES_OK; // feature 設定好了
+  status |= VIRTIO_CONFIG_S_FEATURES_OK;
   *R(VIRTIO_MMIO_STATUS) = status;
 
-  // tell device we're completely ready. // 完成準備，要求 QEMU 協商
+  // tell device we're completely ready.
   status |= VIRTIO_CONFIG_S_DRIVER_OK;
   *R(VIRTIO_MMIO_STATUS) = status;
 
@@ -126,7 +123,7 @@ virtio_disk_init(void) // 初始化本模組
     panic("virtio disk max queue too short");
   *R(VIRTIO_MMIO_QUEUE_NUM) = NUM;
   memset(disk.pages, 0, sizeof(disk.pages));
-  *R(VIRTIO_MMIO_QUEUE_PFN) = ((uint64)disk.pages) >> PGSHIFT; // PFN: Guest physical page number of the virtual queue
+  *R(VIRTIO_MMIO_QUEUE_PFN) = ((uint64)disk.pages) >> PGSHIFT;
 
   // desc = pages -- num * virtq_desc
   // avail = pages + 0x40 -- 2 * uint16, then num * uint16
@@ -136,7 +133,7 @@ virtio_disk_init(void) // 初始化本模組
   disk.avail = (struct virtq_avail *)(disk.pages + NUM*sizeof(struct virtq_desc));
   disk.used = (struct virtq_used *) (disk.pages + PGSIZE);
 
-  // all NUM descriptors start out unused. // 設定所有描述子均為可用
+  // all NUM descriptors start out unused.
   for(int i = 0; i < NUM; i++)
     disk.free[i] = 1;
 
@@ -145,7 +142,7 @@ virtio_disk_init(void) // 初始化本模組
 
 // find a free descriptor, mark it non-free, return its index.
 static int
-alloc_desc() // 找到一個可用的 free descriptor 分配之
+alloc_desc()
 {
   for(int i = 0; i < NUM; i++){
     if(disk.free[i]){
@@ -158,7 +155,7 @@ alloc_desc() // 找到一個可用的 free descriptor 分配之
 
 // mark a descriptor as free.
 static void
-free_desc(int i) // 歸還 descriptor ，回到 free 狀態
+free_desc(int i)
 {
   if(i >= NUM)
     panic("free_desc 1");
@@ -174,7 +171,7 @@ free_desc(int i) // 歸還 descriptor ，回到 free 狀態
 
 // free a chain of descriptors.
 static void
-free_chain(int i) // 釋放一整條的鍊 (descriptor chain)
+free_chain(int i)
 {
   while(1){
     int flag = disk.desc[i].flags;
@@ -190,7 +187,7 @@ free_chain(int i) // 釋放一整條的鍊 (descriptor chain)
 // allocate three descriptors (they need not be contiguous).
 // disk transfers always use three descriptors.
 static int
-alloc3_desc(int *idx) // 分配空間連續的 3 個 descriptor
+alloc3_desc(int *idx)
 {
   for(int i = 0; i < 3; i++){
     idx[i] = alloc_desc();
@@ -204,7 +201,7 @@ alloc3_desc(int *idx) // 分配空間連續的 3 個 descriptor
 }
 
 void
-virtio_disk_rw(struct buf *b, int write) // 啟動 virtio 的磁碟寫入動作
+virtio_disk_rw(struct buf *b, int write)
 {
   uint64 sector = b->blockno * (BSIZE / 512);
 
@@ -214,7 +211,7 @@ virtio_disk_rw(struct buf *b, int write) // 啟動 virtio 的磁碟寫入動作
   // three descriptors: one for type/reserved/sector, one for the
   // data, one for a 1-byte status result.
 
-  // allocate the three descriptors. // 分配直到成功為止
+  // allocate the three descriptors.
   int idx[3];
   while(1){
     if(alloc3_desc(idx) == 0) {
@@ -225,24 +222,21 @@ virtio_disk_rw(struct buf *b, int write) // 啟動 virtio 的磁碟寫入動作
 
   // format the three descriptors.
   // qemu's virtio-blk.c reads them.
-  // 參考 -- https://github.com/qemu/qemu/blob/master/hw/block/virtio-blk.c
 
-  struct virtio_blk_req *buf0 = &disk.ops[idx[0]]; // 讀寫的區塊
+  struct virtio_blk_req *buf0 = &disk.ops[idx[0]];
 
-  if(write) // 根據 write 來設定為《寫入或讀取》
-    buf0->type = VIRTIO_BLK_T_OUT; // write the disk // 讀寫類型為寫入
+  if(write)
+    buf0->type = VIRTIO_BLK_T_OUT; // write the disk
   else
-    buf0->type = VIRTIO_BLK_T_IN; // read the disk // 讀寫類型為讀取
+    buf0->type = VIRTIO_BLK_T_IN; // read the disk
   buf0->reserved = 0;
-  buf0->sector = sector; // 讀寫的磁區號碼 (sector)
+  buf0->sector = sector;
 
-  // 第 0 個描述子
   disk.desc[idx[0]].addr = (uint64) buf0;
   disk.desc[idx[0]].len = sizeof(struct virtio_blk_req);
   disk.desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk.desc[idx[0]].next = idx[1];
 
-  // 第 1 個描述子
   disk.desc[idx[1]].addr = (uint64) b->data;
   disk.desc[idx[1]].len = BSIZE;
   if(write)
@@ -252,7 +246,6 @@ virtio_disk_rw(struct buf *b, int write) // 啟動 virtio 的磁碟寫入動作
   disk.desc[idx[1]].flags |= VRING_DESC_F_NEXT;
   disk.desc[idx[1]].next = idx[2];
 
-  // 第 2 個描述子
   disk.info[idx[0]].status = 0xff; // device writes 0 on success
   disk.desc[idx[2]].addr = (uint64) &disk.info[idx[0]].status;
   disk.desc[idx[2]].len = 1;
@@ -276,11 +269,10 @@ virtio_disk_rw(struct buf *b, int write) // 啟動 virtio 的磁碟寫入動作
   *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 0; // value is queue number
 
   // Wait for virtio_disk_intr() to say request has finished.
-  while(b->disk == 1) { // b->disk=1 代表磁碟正在讀取到緩衝區 buf
+  while(b->disk == 1) {
     sleep(b, &disk.vdisk_lock);
   }
 
-  // 讀完了，釋放 idx[0]
   disk.info[idx[0]].b = 0;
   free_chain(idx[0]);
 
@@ -288,7 +280,7 @@ virtio_disk_rw(struct buf *b, int write) // 啟動 virtio 的磁碟寫入動作
 }
 
 void
-virtio_disk_intr() // virtio_disk_rw() 請求讀寫，完成後 qemu 會發中斷給 xv6
+virtio_disk_intr()
 {
   acquire(&disk.vdisk_lock);
 
@@ -314,7 +306,7 @@ virtio_disk_intr() // virtio_disk_rw() 請求讀寫，完成後 qemu 會發中�
 
     struct buf *b = disk.info[id].b;
     b->disk = 0;   // disk is done with buf
-    wakeup(b); // 讀取完成，喚醒等待此磁碟事件的行程 (加入排程佇列)
+    wakeup(b);
 
     disk.used_idx += 1;
   }

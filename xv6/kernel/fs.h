@@ -1,9 +1,9 @@
-// On-disk file system format. // 磁碟中的檔案系統結構
+// On-disk file system format.
 // Both the kernel and user programs use this header file.
 
 
-#define ROOTINO  1   // root i-number 根結點
-#define BSIZE 1024   // block size    區塊大小    
+#define ROOTINO  1   // root i-number
+#define BSIZE 1024  // block size
 
 // Disk layout:
 // [ boot block | super block | log | inode blocks |
@@ -53,7 +53,7 @@ struct dinode {
 // Directory is a file containing a sequence of dirent structures.
 #define DIRSIZ 14
 
-struct dirent { // 目錄中的一項 (inode 代號+名稱)。
+struct dirent {
   ushort inum;
   char name[DIRSIZ];
 };

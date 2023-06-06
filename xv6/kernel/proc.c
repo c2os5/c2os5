@@ -7,11 +7,11 @@
 #include "defs.h"
 
 // 行程管理模組 (process)
-struct cpu cpus[NCPU];    // 處理器 (核心)
+struct cpu cpus[NCPU];
 
-struct proc proc[NPROC];  // 行程
+struct proc proc[NPROC];
 
-struct proc *initproc;    // init 行程：第一個被啟動的使用者行程
+struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -19,7 +19,7 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
-extern char trampoline[]; // trampoline.S  // 彈跳床
+extern char trampoline[]; // trampoline.S
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -33,8 +33,7 @@ struct spinlock wait_lock;
 void
 proc_mapstacks(pagetable_t kpgtbl) {
   struct proc *p;
-  // 每個行程都先分配 1 頁當堆疊，後面是 guard page，
-  // 若堆疊成長超過時，會觸發中斷，導致分配新的頁。
+  
   for(p = proc; p < &proc[NPROC]; p++) {
     char *pa = kalloc();
     if(pa == 0)
@@ -46,7 +45,7 @@ proc_mapstacks(pagetable_t kpgtbl) {
 
 // initialize the proc table at boot time.
 void
-procinit(void) // 初始化行程表
+procinit(void)
 {
   struct proc *p;
   
@@ -62,7 +61,7 @@ procinit(void) // 初始化行程表
 // to prevent race with process being moved
 // to a different CPU.
 int
-cpuid() // 取得 CPU 代號
+cpuid()
 {
   int id = r_tp();
   return id;
@@ -71,7 +70,7 @@ cpuid() // 取得 CPU 代號
 // Return this CPU's cpu struct.
 // Interrupts must be disabled.
 struct cpu*
-mycpu(void) { // 傳回 struct cpu (包含 proc, context)
+mycpu(void) {
   int id = cpuid();
   struct cpu *c = &cpus[id];
   return c;
@@ -79,7 +78,7 @@ mycpu(void) { // 傳回 struct cpu (包含 proc, context)
 
 // Return the current struct proc *, or zero if none.
 struct proc*
-myproc(void) { // 傳回目前行程
+myproc(void) {
   push_off();
   struct cpu *c = mycpu();
   struct proc *p = c->proc;
@@ -88,7 +87,7 @@ myproc(void) { // 傳回目前行程
 }
 
 int
-allocpid() { // 取得新分配的行程代號
+allocpid() {
   int pid;
   
   acquire(&pid_lock);
@@ -104,10 +103,10 @@ allocpid() { // 取得新分配的行程代號
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
 static struct proc*
-allocproc(void) // 取得行程表中未使用的一格分配出去
+allocproc(void)
 {
   struct proc *p;
-  // 尋找未使用的一格
+
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if(p->state == UNUSED) {
@@ -119,17 +118,17 @@ allocproc(void) // 取得行程表中未使用的一格分配出去
   return 0;
 
 found:
-  p->pid = allocpid(); // 分配行程代號
-  p->state = USED;     // 狀態改為已使用
+  p->pid = allocpid();
+  p->state = USED;
 
-  // Allocate a trapframe page. // 分配彈跳床頁
+  // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
 
-  // An empty user page table. // 初始化分頁表
+  // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
     freeproc(p);
@@ -137,8 +136,6 @@ found:
     return 0;
   }
 
-  // 初始化內文區域，設定內文中的堆疊 sp 與 ra 
-  // 返回位址 ra 設為 forkret()，這樣才會初始化檔案表等結構
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -152,7 +149,7 @@ found:
 // including user pages.
 // p->lock must be held.
 static void
-freeproc(struct proc *p) // 釋放行程
+freeproc(struct proc *p)
 {
   if(p->trapframe)
     kfree((void*)p->trapframe);
@@ -173,12 +170,12 @@ freeproc(struct proc *p) // 釋放行程
 // Create a user page table for a given process,
 // with no user memory, but with trampoline pages.
 pagetable_t
-proc_pagetable(struct proc *p) // 創建新行程的分頁表 (只有一頁彈跳床)
+proc_pagetable(struct proc *p)
 {
   pagetable_t pagetable;
 
   // An empty page table.
-  pagetable = uvmcreate(); // 創建空的分頁表
+  pagetable = uvmcreate();
   if(pagetable == 0)
     return 0;
 
@@ -186,13 +183,12 @@ proc_pagetable(struct proc *p) // 創建新行程的分頁表 (只有一頁彈�
   // at the highest user virtual address.
   // only the supervisor uses it, on the way
   // to/from user space, so not PTE_U.
-  // 映射彈跳床頁 TRAMPOLINE 到實體頁 trampoline
   if(mappages(pagetable, TRAMPOLINE, PGSIZE,
               (uint64)trampoline, PTE_R | PTE_X) < 0){
     uvmfree(pagetable, 0);
     return 0;
   }
-  // 將彈跳床後的那頁設為防護頁 (trapframe)
+
   // map the trapframe just below TRAMPOLINE, for trampoline.S.
   if(mappages(pagetable, TRAPFRAME, PGSIZE,
               (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
@@ -207,14 +203,14 @@ proc_pagetable(struct proc *p) // 創建新行程的分頁表 (只有一頁彈�
 // Free a process's page table, and free the
 // physical memory it refers to.
 void
-proc_freepagetable(pagetable_t pagetable, uint64 sz) // 釋放行程分頁表
+proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
 }
 
-// a user program that calls exec("/init") // 第一個使用者行程 init 的機器碼
+// a user program that calls exec("/init")
 // od -t xC initcode
 uchar initcode[] = {
   0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
@@ -226,7 +222,7 @@ uchar initcode[] = {
   0x00, 0x00, 0x00, 0x00
 };
 
-// Set up first user process. // 創建第一個使用者行程
+// Set up first user process.
 void
 userinit(void)
 {
@@ -255,7 +251,7 @@ userinit(void)
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
 int
-growproc(int n) // 增大 n byte 的行程空間
+growproc(int n)
 {
   uint sz;
   struct proc *p = myproc();
@@ -275,7 +271,7 @@ growproc(int n) // 增大 n byte 的行程空間
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
-fork(void) // 行程 fork() 
+fork(void)
 {
   int i, pid;
   struct proc *np;
@@ -326,7 +322,7 @@ fork(void) // 行程 fork()
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
 void
-reparent(struct proc *p) // 將死亡的子行程掛到 init 下面？
+reparent(struct proc *p)
 {
   struct proc *pp;
 
@@ -342,14 +338,14 @@ reparent(struct proc *p) // 將死亡的子行程掛到 init 下面？
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
-exit(int status) // exit() 呼叫後會成為殭屍狀態，直到 parent 呼叫 wait() 才真正結束。
+exit(int status)
 {
   struct proc *p = myproc();
 
   if(p == initproc)
     panic("init exiting");
 
-  // Close all open files. // 關閉所有開啟的檔案
+  // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
       struct file *f = p->ofile[fd];
@@ -366,27 +362,27 @@ exit(int status) // exit() 呼叫後會成為殭屍狀態，直到 parent 呼叫
   acquire(&wait_lock);
 
   // Give any children to init.
-  reparent(p); // 將死亡的子行程掛到 init 下面？
+  reparent(p);
 
   // Parent might be sleeping in wait().
-  wakeup(p->parent); // 喚醒父行程，因為父行程可能在 wait() 當中
+  wakeup(p->parent);
   
   acquire(&p->lock);
 
   p->xstate = status;
-  p->state = ZOMBIE; // 目前行程進入殭屍狀態
+  p->state = ZOMBIE;
 
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
-  sched(); // 交回控制權給排程系統
+  sched();
   panic("zombie exit");
 }
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(uint64 addr) // 等待子行程離開
+wait(uint64 addr)
 {
   struct proc *np;
   int havekids, pid;
@@ -422,17 +418,17 @@ wait(uint64 addr) // 等待子行程離開
     }
 
     // No point waiting if we don't have any children.
-    if(!havekids || p->killed){ // 如果沒有 child 或已經被 kill ，則離開。
+    if(!havekids || p->killed){
       release(&wait_lock);
       return -1;
     }
     
     // Wait for a child to exit.
-    sleep(p, &wait_lock);  //DOC: wait-sleep // 否則繼續睡眠
+    sleep(p, &wait_lock);  //DOC: wait-sleep
   }
 }
 
-// Per-CPU process scheduler. // 每個 CPU 都有自己的排程器
+// Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
 //  - choose a process to run.
@@ -449,7 +445,7 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    // 當回到本排程器時，挑選下一個 RUNNABLE 的行程來執行。
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -458,7 +454,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        swtch(&c->context, &p->context); // 切換給該行程執行。
+        swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -477,7 +473,7 @@ scheduler(void)
 // break in the few places where a lock is held but
 // there's no process.
 void
-sched(void) // 切回到 OS 排程器 (行程 yield() 之後)
+sched(void)
 {
   int intena;
   struct proc *p = myproc();
@@ -498,7 +494,7 @@ sched(void) // 切回到 OS 排程器 (行程 yield() 之後)
 
 // Give up the CPU for one scheduling round.
 void
-yield(void) // 行程 yield() 後會切回到 OS 排程器
+yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
@@ -517,7 +513,7 @@ forkret(void)
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
-  if (first) { // 第一次執行 forkret() 時，必須執行檔案系統的初始化 (不能在 kernel 的 main() 中執行)
+  if (first) {
     // File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
@@ -525,7 +521,7 @@ forkret(void)
     fsinit(ROOTDEV);
   }
 
-  usertrapret(); // 切換回使用者空間 (模式/分頁表/)
+  usertrapret();
 }
 
 // Atomically release lock and sleep on chan.

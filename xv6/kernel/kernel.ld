@@ -3,7 +3,7 @@ ENTRY( _entry )
 
 SECTIONS
 {
-  /* 入口點 _entry 定義為 0x80000000
+  /*
    * ensure that entry.S / _entry is at 0x80000000,
    * where qemu's -kernel jumps.
    */
@@ -11,9 +11,9 @@ SECTIONS
 
   .text : {
     *(.text .text.*)
-    . = ALIGN(0x1000); /* 啟動位址為 0x1000 */
+    . = ALIGN(0x1000);
     _trampoline = .;
-    *(trampsec) /* 定義在 trempline.s 中的 .section trampsec */
+    *(trampsec)
     . = ALIGN(0x1000);
     ASSERT(. - _trampoline == 0x1000, "error: trampoline larger than one page");
     PROVIDE(etext = .);

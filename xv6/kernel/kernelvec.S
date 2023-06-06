@@ -7,11 +7,11 @@
 .globl kerneltrap
 .globl kernelvec
 .align 4
-kernelvec: // 中斷向量
-        // make room to save registers. # 分配堆疊以儲存暫存器
+kernelvec: #  中斷向量
+        #  make room to save registers. # 分配堆疊以儲存暫存器
         addi sp, sp, -256
 
-        // save the registers.
+        #  save the registers.
         sd ra, 0(sp)
         sd sp, 8(sp)
         sd gp, 16(sp)
@@ -44,14 +44,14 @@ kernelvec: // 中斷向量
         sd t5, 232(sp)
         sd t6, 240(sp)
 
-	// call the C trap handler in trap.c # 呼叫 C 語言的 kerneltrap() 函數。
+	#  call the C trap handler in trap.c # 呼叫 C 語言的 kerneltrap() 函數。
         call kerneltrap
 
-        // restore registers. // 恢復暫存器
+        #  restore registers. #  恢復暫存器
         ld ra, 0(sp)
         ld sp, 8(sp)
         ld gp, 16(sp)
-        // not this, in case we moved CPUs: ld tp, 24(sp)
+        #  not this, in case we moved CPUs: ld tp, 24(sp)
         ld t0, 32(sp)
         ld t1, 40(sp)
         ld t2, 48(sp)
@@ -82,7 +82,7 @@ kernelvec: // 中斷向量
 
         addi sp, sp, 256 # 恢復堆疊指標
 
-        // return to whatever we were doing in the kernel.
+        #  return to whatever we were doing in the kernel.
         sret
 
         #
@@ -90,7 +90,7 @@ kernelvec: // 中斷向量
         #
 .globl timervec
 .align 4
-timervec: // 時間中斷
+timervec: #  時間中斷
         # start.c has set up the memory that mscratch points to:
         # scratch[0,8,16] : register save area.
         # scratch[24] : address of CLINT's MTIMECMP register.
@@ -113,10 +113,6 @@ timervec: // 時間中斷
         # 引發核心中斷，跳到 kernelvec=>kerneltrap()
 	li a1, 2
         csrw sip, a1
-        # 參考 riscv-privileged-v1.10.pdf: 4.1.5 Supervisor Interrupt Registers (sip and sie)
-        #   A supervisor-level software interrupt
-        #   is triggered on the current hart by writing 1 to its supervisor
-        #   software interrupt-pending (SSIP) bit in the sip register.
 
         ld a3, 16(a0)  # 從暫存區取回暫存器
         ld a2, 8(a0)

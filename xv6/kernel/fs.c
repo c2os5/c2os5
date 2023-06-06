@@ -1,5 +1,4 @@
-// 檔案系統的五個層次，底下為 virtio，上面為系統呼叫，共七層
-// File system implementation.  Five layers: 
+// File system implementation.  Five layers:
 //   + Blocks: allocator for raw disk blocks.
 //   + Log: crash recovery for multi-step updates.
 //   + Files: inode allocator, reading, writing, metadata.
