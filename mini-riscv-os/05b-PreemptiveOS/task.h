@@ -8,8 +8,8 @@
 #define STACK_SIZE 1024
 
 extern int taskTop;
-struct context ctx_os;
-struct context *ctx_now;
+extern struct context ctx_os;
+extern struct context *ctx_now;
 
 extern int  task_create(void (*task)(void));
 extern void task_go(int i);
